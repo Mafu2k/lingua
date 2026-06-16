@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+build
+next-env.d.ts
+*.tsbuildinfo
+
+# production / deploy
+.vercel
+
+# env files (keep .env.example tracked)
+.env
+.env*.local
+
+# testing
+coverage
+
+# editor / tooling
+.idea
+.vscode
+.DS_Store
+*.log
