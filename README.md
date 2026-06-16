@@ -1,6 +1,7 @@
 # Lingua — Premium Translator
 
 [![CI](https://github.com/Mafu2k/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/Mafu2k/lingua/actions/workflows/ci.yml)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Mafu2k/lingua)
 
 Real-time, low-latency translation between **Polish, English, German, Italian and French**.
 One responsive web app that runs equally well on a phone browser and on desktop.
@@ -94,7 +95,19 @@ DeepL or Google Cloud key for production.
 
 ## Deployment
 
-**Vercel** — import the repo, set env vars, deploy. Zero extra config.
+> GitHub Pages is **not** supported: it only serves static files and cannot run the
+> `/api/*` route handlers or server rendering this app relies on. Use a host that runs
+> Node.js (Vercel, Render, Railway, Docker, …).
+
+**Vercel** (recommended) — Next.js is auto-detected, no build config needed:
+
+1. Push to GitHub (already done) and open <https://vercel.com/new>.
+2. Import the `lingua` repository.
+3. (Optional) Add environment variables for production-grade translation:
+   - `DEEPL_API_KEY` — your DeepL key (kept server-side, never exposed to the browser).
+   - or `GOOGLE_TRANSLATE_API_KEY` for Google Cloud Translation.
+   - Leave both empty to ship with the free fallback provider.
+4. Deploy. Every push to `main` then redeploys automatically.
 
 **Docker**
 
