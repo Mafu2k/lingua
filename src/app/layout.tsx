@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { AppShell } from "@/shared/ui/AppShell";
 import { ThemeProvider, themeInitScript } from "@/shared/theme/ThemeProvider";
 import "./globals.css";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <AppShell>{children}</AppShell>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
