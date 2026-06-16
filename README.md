@@ -1,153 +1,65 @@
-# Lingua - Premium Translator
+# Lingua
 
 [![CI](https://github.com/Mafu2k/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/Mafu2k/lingua/actions/workflows/ci.yml)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Mafu2k/lingua)
 
-Real-time, low-latency translation between **Polish, English, German, Italian and French**.
-One responsive web app that runs equally well on a phone browser and on desktop.
+A web translator for Polish, English, German, Italian and French. It has three modes:
 
-- **Conversation** (priority) - two people, two languages, one device. Live speech
-  recognition, automatic translation and spoken replies in a split-screen layout.
-- **Text** - instant translation with automatic source-language detection and one-tap copy.
-- **Image (OCR)** - read and translate documents, menus, street signs and notes from a photo.
+- **Conversation**: two people share one phone, each on their half of the screen. The app
+  listens, translates and reads the translation out loud.
+- **Text**: type or paste text and the source language is detected automatically.
+- **Photo (OCR)**: take a picture of a menu, sign or document and translate what's on it.
 
-## Stack
+Built with Next.js 14 (App Router), TypeScript and Tailwind. Speech recognition and
+text-to-speech use the browser's Web Speech API, and OCR runs in the browser with Tesseract.js.
+Translation is done server-side behind a small provider interface: DeepL or Google Cloud when
+an API key is set, otherwise a free fallback (MyMemory plus Google's unofficial endpoint) that is
+fine for development.
 
-| Concern        | Choice                              | Why |
-|----------------|-------------------------------------|-----|
-| App            | Next.js 14 (App Router) + TS        | One codebase serves mobile and desktop browsers |
-| Styling        | Tailwind CSS + CSS variables        | Theming, dark/light, no runtime cost |
-| Speech-to-Text | Web Speech API                      | On-device, lowest latency for live conversation |
-| Text-to-Speech | Web Speech API (`speechSynthesis`)  | Spoken translations with no round-trip |
-| OCR            | Tesseract.js                        | Runs in the browser, no server needed |
-| Translation    | Provider port: DeepL / Google Cloud / MyMemory | Production-grade, swappable, with fallback |
-| Detection      | Provider-native (DeepL/Google) + `franc-min` fallback | Accurate even on short text |
-
-## Architecture
-
-Feature-based Clean Architecture. Each feature is sliced into layers and depends only
-inward (`ui → application → domain`, with `infrastructure` implementing domain ports):
-
-```
-src/
-  core/                   # shared kernel
-    domain/               # Language registry, Translation types
-    config/env.ts         # validated environment configuration
-  features/
-    translation/
-      domain/ports.ts             # TranslatorProvider, LanguageDetector (interfaces)
-      application/translate.usecase.ts
-      infrastructure/             # DeepL · Google Cloud · Google(web) · MyMemory · fallback · factory
-      ui/                         # TextTranslator + hooks
-    ocr/                          # Tesseract adapter + UI
-    conversation/                 # Web Speech adapters, useConversation, split-screen UI
-  shared/                 # design system, hooks, theme, rate-limit, http utilities
-  app/                    # routes + API route handlers (the backend boundary)
-```
-
-API route handlers in `src/app/api/*` contain **no business logic** - they validate,
-rate-limit, and delegate to the use case. The same `TranslateUseCase` and ports can be
-lifted into a NestJS service unchanged; only the thin HTTP layer and the composition root
-(`translation.factory.ts`) would move.
-
-## Getting started
+## Running locally
 
 ```bash
 npm install
-cp .env.example .env   # optional - works without it in dev
-npm run dev            # http://localhost:3000
+npm run dev        # http://localhost:3000
 ```
 
-The app runs with **no configuration** in development (free fallback provider).
-**Conversation mode requires a Chromium-based browser** (Google Chrome / Microsoft Edge,
-desktop or Android) because it relies on the Web Speech API. On a phone it also requires
-HTTPS (the dev `localhost` is exempt).
+No configuration is needed in development. Conversation mode needs a Chromium-based browser
+(Chrome or Edge) because of the Web Speech API, and on a phone it also needs HTTPS.
+
+```bash
+npm run typecheck
+npm run lint
+npm test           # Vitest
+```
 
 ## Configuration
 
-All variables are optional; see [`.env.example`](.env.example).
+Everything is optional, see [`.env.example`](.env.example). The most useful variables are
+`DEEPL_API_KEY` or `GOOGLE_TRANSLATE_API_KEY` for a real translation provider, and
+`TRANSLATION_PROVIDER` to force one. Input length, rate limiting and upstream timeouts can
+be tuned there too.
 
-| Variable                   | Default | Purpose |
-|----------------------------|---------|---------|
-| `TRANSLATION_PROVIDER`     | auto    | `deepl` \| `google-cloud` \| `mymemory` \| `google` |
-| `DEEPL_API_KEY`            | -       | Enables DeepL (recommended for production) |
-| `GOOGLE_TRANSLATE_API_KEY` | -       | Enables official Google Cloud Translation |
-| `MYMEMORY_CONTACT_EMAIL`   | -       | Raises MyMemory's anonymous rate limit |
-| `MAX_TEXT_LENGTH`          | 5000    | Server-side input cap |
-| `RATE_LIMIT_MAX`           | 60      | Requests per window per IP |
-| `RATE_LIMIT_WINDOW_MS`     | 60000   | Rate-limit window |
-| `PROVIDER_TIMEOUT_MS`      | 8000    | Upstream provider timeout |
-| `NEXT_PUBLIC_SITE_URL`     | -       | Canonical URL for metadata |
+## How the code is organised
 
-**Provider selection** (when `TRANSLATION_PROVIDER` is empty): DeepL if a key is set →
-otherwise Google Cloud if a key is set → otherwise a free fallback (unofficial Google
-endpoint + MyMemory). The free endpoint is **unsupported and for development only**; set a
-DeepL or Google Cloud key for production.
+Each feature in `src/features/` (translation, conversation, ocr) is split into `domain`
+(types and ports), `application` (use cases), `infrastructure` (DeepL, Google, MyMemory,
+Tesseract and Web Speech adapters) and `ui`. API routes in `src/app/api/` only validate input,
+apply the rate limit and call the use case. `translation.factory.ts` decides which provider
+gets used.
 
-## Production notes
-
-- **Security headers**: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
-  a `frame-ancestors 'none'` CSP and a `Permissions-Policy` that grants only the microphone.
-- **Rate limiting & input caps** on every API route. The limiter is in-memory (per
-  instance) - for multi-instance deployments back it with Redis/Upstash.
-- **Timeouts** on all upstream provider calls.
-- **Standalone output** + multi-stage `Dockerfile` for container deploys.
+The rate limiter is in memory, so with more than one instance it would have to move to
+something like Redis.
 
 ## Deployment
 
-> GitHub Pages is **not** supported: it only serves static files and cannot run the
-> `/api/*` route handlers or server rendering this app relies on. Use a host that runs
-> Node.js (Vercel, Render, Railway, Docker, …).
-
-**Vercel** (recommended) - Next.js is auto-detected, no build config needed:
-
-1. Push to GitHub (already done) and open <https://vercel.com/new>.
-2. Import the `lingua` repository.
-3. (Optional) Add environment variables for production-grade translation:
-   - `DEEPL_API_KEY` - your DeepL key (kept server-side, never exposed to the browser).
-   - or `GOOGLE_TRANSLATE_API_KEY` for Google Cloud Translation.
-   - Leave both empty to ship with the free fallback provider.
-4. Deploy. Every push to `main` then redeploys automatically.
-
-**Docker**
+The app needs a Node server for its API routes, so GitHub Pages won't work. Vercel picks it up
+without any config: import the repo and optionally add `DEEPL_API_KEY`. There is also a
+multi-stage `Dockerfile`:
 
 ```bash
 docker build -t lingua .
 docker run -p 3000:3000 --env-file .env lingua
 ```
 
-**Node**
-
-```bash
-npm run build
-npm run start
-```
-
-## Scripts
-
-| Script              | Purpose                       |
-|---------------------|-------------------------------|
-| `npm run dev`       | Development server            |
-| `npm run build`     | Production build              |
-| `npm run start`     | Run the production build      |
-| `npm run typecheck` | Strict TypeScript check       |
-| `npm run lint`      | ESLint (next/core-web-vitals) |
-| `npm run test`      | Unit tests (Vitest)           |
-
-## Accessibility & UX
-
-- Full keyboard operation, visible focus rings, `aria-live` regions for translations and
-  transcripts, labelled controls and microphone buttons.
-- Dark / light themes with no flash on load (theme resolved before hydration) and respect
-  for `prefers-reduced-motion`.
-- Large tap targets, responsive split-screen, safe-area-aware bottom navigation, installable
-  PWA manifest.
-
-## Roadmap
-
-- Server-side STT (Whisper / cloud) for speech recognition that works in every browser.
-- Optional PostgreSQL persistence for conversation history and glossaries.
-
 ## License
 
-[MIT](LICENSE).
+MIT
